@@ -8,15 +8,18 @@
   },
   "author": "coupy",
   "dependencies": {
+    "connect-session-knex": "^4.0.0",
     "express": "^4.18.2",
-    "express-mysql-session": "^3.0.0",
     "express-session": "^1.17.3",
     "knex": "^3.0.1",
-    "mysql2": "^3.6.5"
+    "mysql2": "^3.6.5",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/express-mysql-session": "^3.0.3",
     "@types/express-session": "^1.17.10",
+    "@types/uuid": "^9.0.7",
     "prettier": "^3.1.0"
   }
 }

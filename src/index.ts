@@ -1,23 +1,23 @@
 import express from "express";
-import session from "express-session";
+import * as session from "express-session";
+import { v4 } from "uuid";
+import { pbkdf2Sync, randomBytes } from "node:crypto";
 const config = require(__dirname + "/../config/config.json");
-const MySQLStore = require("express-mysql-session")(session);
-
-const dbOptions = {
-  host: config.db.host,
-  port: config.db.port,
-  user: config.db.user,
-  password: config.db.password,
-  database: config.db.database,
-};
+const KnexSessionStore = require("connect-session-knex")(session);
 
 const knex = require("knex")({
   client: "mysql2",
-  connection: dbOptions,
+  connection: {
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
+    password: config.db.password,
+    database: config.db.database,
+  },
   pool: { min: 0, max: 7 },
 });
 
-const sessionStore = new MySQLStore(dbOptions);
+const sessionStore = new KnexSessionStore({ knex });
 
 const app = express();
 
@@ -25,7 +25,7 @@ app.locals.pretty = true;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
-  session({
+  session.default({
     secret: config.session.secret,
     store: sessionStore,
     resave: config.session.resave,
