@@ -33,10 +33,52 @@ app.use(
   })
 );
 
+const uuid = () => {
+  const tokens = v4().split("-");
+  return tokens[2] + tokens[1] + tokens[0] + tokens[3] + tokens[4];
+};
+
 app.get("/", (req, res) => {
-  res.send("Hello World!");
+  res.send("API server is running");
+});
+
+app.get("/user/status", (req, res) => {
+  if (req.session.userid) {
+    res.status(200).json({ status: "logined" });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.post("/admin/login", async (req, res) => {
+  const { username, password } = req.body;
+  knex("teachers")
+    .where({ username })
+    .then((rows: any) => {
+      if (rows.length > 0) {
+        const salt = rows[0].salt;
+        const key = pbkdf2Sync(password, salt, 100000, 64, "sha512");
+        if (key.toString("hex") === rows[0].password) {
+          req.session.userid = rows[0].userid;
+          res.status(200).json({ status: "success" });
+        } else {
+          res.status(400).json({ status: "fail" });
+        }
+      } else {
+        res.status(400).json({ status: "fail" });
+      }
+    })
+    .catch((err: any) => {
+      res.status(500).json({ status: "error" });
+      console.log(err);
+    });
 });
 
 app.listen(config.project.port, () => {
+  // console.log(uuid());
+  // const salt = randomBytes(128).toString("base64");
+  // const key = pbkdf2Sync("kanghyukjin12", salt, 100000, 64, "sha512");
+  // console.log(salt);
+  // console.log(key.toString("hex"));
   console.log(`Server listening at port ${config.project.port}`);
 });
