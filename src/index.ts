@@ -60,7 +60,9 @@ app.post("/admin/login", async (req, res) => {
         const key = pbkdf2Sync(password, salt, 100000, 64, "sha512");
         if (key.toString("hex") === rows[0].password) {
           req.session.userid = rows[0].userid;
-          res.status(200).json({ status: "success" });
+          req.session.save(() => {
+            res.status(200).json({ status: "success" });
+          });
         } else {
           res.status(400).json({ status: "fail" });
         }
