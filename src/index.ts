@@ -103,6 +103,19 @@ app.post("/admin/logout", (req, res) => {
   });
 });
 
+app.get("/allboard", (req, res) => {
+  knex("allboard")
+    .select("id", "title", "content", "date", "delta")
+    .orderBy("date", "desc")
+    .then((rows: any) => {
+      res.status(200).json({ status: "success", num: rows.length, list: rows });
+    })
+    .catch((err: any) => {
+      res.status(500).json({ status: "error" });
+      console.log(err);
+    });
+});
+
 app.listen(config.project.port, () => {
   // console.log(uuid());
   // const salt = randomBytes(128).toString("base64");
