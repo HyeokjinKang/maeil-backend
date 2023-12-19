@@ -97,6 +97,12 @@ app.get("/admin/myinfo", (req, res) => {
   }
 });
 
+app.post("/admin/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.status(200).json({ status: "success" });
+  });
+});
+
 app.listen(config.project.port, () => {
   // console.log(uuid());
   // const salt = randomBytes(128).toString("base64");
