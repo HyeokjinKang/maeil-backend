@@ -76,6 +76,27 @@ app.post("/admin/login", async (req, res) => {
     });
 });
 
+app.get("/admin/myinfo", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("userid", "username", "name", "type", "classid", "mobile", "email")
+      .then((rows: any) => {
+        if (rows.length > 0) {
+          res.status(200).json({ status: "success", info: rows[0] });
+        } else {
+          res.status(400).json({ status: "not exist" });
+        }
+      })
+      .catch((err: any) => {
+        res.status(500).json({ status: "error" });
+        console.log(err);
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.listen(config.project.port, () => {
   // console.log(uuid());
   // const salt = randomBytes(128).toString("base64");
