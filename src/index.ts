@@ -116,6 +116,38 @@ app.get("/allboard", (req, res) => {
     });
 });
 
+app.post("/allboard", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows[0].type === 0) {
+          const { title, content, delta } = req.body;
+          knex("allboard")
+            .insert({
+              title,
+              content,
+              delta,
+              date: new Date(),
+              id: uuid(),
+            })
+            .then(() => {
+              res.status(200).json({ status: "success" });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not admin" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.listen(config.project.port, () => {
   // console.log(uuid());
   // const salt = randomBytes(128).toString("base64");
