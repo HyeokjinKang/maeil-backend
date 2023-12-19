@@ -148,6 +148,38 @@ app.post("/allboard", (req, res) => {
   }
 });
 
+app.put("/allboard", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows[0].type === 0) {
+          const { id, title, content, delta } = req.body;
+          knex("allboard")
+            .where({ id })
+            .update({
+              title,
+              content,
+              delta,
+              date: new Date(),
+            })
+            .then(() => {
+              res.status(200).json({ status: "success" });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not admin" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.delete("/allboard", (req, res) => {
   if (req.session.userid) {
     knex("teachers")
