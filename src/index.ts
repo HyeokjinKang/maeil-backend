@@ -80,7 +80,7 @@ app.get("/admin/myinfo", (req, res) => {
   if (req.session.userid) {
     knex("teachers")
       .where({ userid: req.session.userid })
-      .select("userid", "username", "name", "type", "classid", "mobile", "email")
+      .select("userid", "username", "name", "type", "mobile", "email")
       .then((rows: any) => {
         if (rows.length > 0) {
           res.status(200).json({ status: "success", info: rows[0] });
