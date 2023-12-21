@@ -246,24 +246,32 @@ app.post("/teachers", (req, res) => {
               if (rows.length > 0) {
                 res.status(400).json({ status: "username exist" });
               } else {
-                const salt = randomBytes(128).toString("base64");
                 knex("teachers")
-                  .insert({
-                    userid: uuid(),
-                    username,
-                    name,
-                    type,
-                    mobile,
-                    email,
-                    salt: salt,
-                    password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
-                  })
-                  .then(() => {
-                    res.status(200).json({ status: "success" });
-                  })
-                  .catch((err: any) => {
-                    res.status(500).json({ status: "error" });
-                    console.log(err);
+                  .where({ name: name })
+                  .then((rows: any) => {
+                    if (rows.length > 0) {
+                      res.status(400).json({ status: "name exist" });
+                    } else {
+                      const salt = randomBytes(128).toString("base64");
+                      knex("teachers")
+                        .insert({
+                          userid: uuid(),
+                          username,
+                          name,
+                          type,
+                          mobile,
+                          email,
+                          salt: salt,
+                          password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                        })
+                        .then(() => {
+                          res.status(200).json({ status: "success" });
+                        })
+                        .catch((err: any) => {
+                          res.status(500).json({ status: "error" });
+                          console.log(err);
+                        });
+                    }
                   });
               }
             });
@@ -285,37 +293,55 @@ app.put("/teachers", (req, res) => {
         if (rows[0].type === 0) {
           const { userid, username, password, name, type, mobile, email } = req.body;
           knex("teachers")
-            .where({ userid })
-            .update({
-              username,
-              name,
-              type,
-              mobile,
-              email,
-            })
-            .then(() => {
-              if (password) {
-                const salt = randomBytes(128).toString("base64");
-                knex("teachers")
-                  .where({ userid })
-                  .update({
-                    salt: salt,
-                    password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
-                  })
-                  .then(() => {
-                    res.status(200).json({ status: "success" });
-                  })
-                  .catch((err: any) => {
-                    res.status(500).json({ status: "error" });
-                    console.log(err);
-                  });
+            .where({ username: username })
+            .where("userid", "!=", userid)
+            .then((rows: any) => {
+              if (rows.length > 0) {
+                res.status(400).json({ status: "username exist" });
               } else {
-                res.status(200).json({ status: "success" });
+                knex("teachers")
+                  .where({ name: name })
+                  .where("userid", "!=", userid)
+                  .then((rows: any) => {
+                    if (rows.length > 0) {
+                      res.status(400).json({ status: "name exist" });
+                    } else {
+                      knex("teachers")
+                        .where({ userid })
+                        .update({
+                          username,
+                          name,
+                          type,
+                          mobile,
+                          email,
+                        })
+                        .then(() => {
+                          if (password) {
+                            const salt = randomBytes(128).toString("base64");
+                            knex("teachers")
+                              .where({ userid })
+                              .update({
+                                salt: salt,
+                                password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                              })
+                              .then(() => {
+                                res.status(200).json({ status: "success" });
+                              })
+                              .catch((err: any) => {
+                                res.status(500).json({ status: "error" });
+                                console.log(err);
+                              });
+                          } else {
+                            res.status(200).json({ status: "success" });
+                          }
+                        })
+                        .catch((err: any) => {
+                          res.status(500).json({ status: "error" });
+                          console.log(err);
+                        });
+                    }
+                  });
               }
-            })
-            .catch((err: any) => {
-              res.status(500).json({ status: "error" });
-              console.log(err);
             });
         } else {
           res.status(400).json({ status: "not admin" });
@@ -362,7 +388,7 @@ app.get("/students", (req, res) => {
       .then((rows: any) => {
         if (rows[0].type === 0) {
           knex("students")
-            .select("userid", "username", "name", "mobile", "parent", "groups", "performance")
+            .select("userid", "username", "name", "mobile", "parent", "groups", "performance", "lastlogin")
             .then((rows: any) => {
               res.status(200).json({ status: "success", num: rows.length, list: rows });
             })
@@ -393,25 +419,34 @@ app.post("/students", (req, res) => {
               if (rows.length > 0) {
                 res.status(400).json({ status: "username exist" });
               } else {
-                const salt = randomBytes(128).toString("base64");
                 knex("students")
-                  .insert({
-                    userid: uuid(),
-                    username,
-                    name,
-                    mobile,
-                    parent,
-                    groups: "[]",
-                    performance: "[[0,0],[0,0],[0,0]]",
-                    salt: salt,
-                    password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
-                  })
-                  .then(() => {
-                    res.status(200).json({ status: "success" });
-                  })
-                  .catch((err: any) => {
-                    res.status(500).json({ status: "error" });
-                    console.log(err);
+                  .where({ name: name })
+                  .then((rows: any) => {
+                    if (rows.length > 0) {
+                      res.status(400).json({ status: "name exist" });
+                    } else {
+                      const salt = randomBytes(128).toString("base64");
+                      knex("students")
+                        .insert({
+                          userid: uuid(),
+                          username,
+                          name,
+                          mobile,
+                          parent,
+                          groups: "[]",
+                          performance: "[[0,0],[0,0],[0,0]]",
+                          salt: salt,
+                          password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                          lastlogin: new Date(),
+                        })
+                        .then(() => {
+                          res.status(200).json({ status: "success" });
+                        })
+                        .catch((err: any) => {
+                          res.status(500).json({ status: "error" });
+                          console.log(err);
+                        });
+                    }
                   });
               }
             });
@@ -440,35 +475,44 @@ app.put("/students", (req, res) => {
                 res.status(400).json({ status: "username exist" });
               } else {
                 knex("students")
-                  .where({ userid })
-                  .update({
-                    username,
-                    name,
-                    mobile,
-                    parent,
-                  })
-                  .then(() => {
-                    if (password) {
-                      const salt = randomBytes(128).toString("base64");
+                  .where({ name: name })
+                  .where("userid", "!=", userid)
+                  .then((rows: any) => {
+                    if (rows.length > 0) {
+                      res.status(400).json({ status: "name exist" });
+                    } else {
                       knex("students")
                         .where({ userid })
                         .update({
-                          salt: salt,
-                          password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                          username,
+                          name,
+                          mobile,
+                          parent,
                         })
                         .then(() => {
-                          res.status(200).json({ status: "success" });
+                          if (password) {
+                            const salt = randomBytes(128).toString("base64");
+                            knex("students")
+                              .where({ userid })
+                              .update({
+                                salt: salt,
+                                password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                              })
+                              .then(() => {
+                                res.status(200).json({ status: "success" });
+                              })
+                              .catch((err: any) => {
+                                res.status(500).json({ status: "error" });
+                                console.log(err);
+                              });
+                          } else {
+                            res.status(200).json({ status: "success" });
+                          }
                         })
                         .catch((err: any) => {
                           res.status(500).json({ status: "error" });
-                          console.log(err);
                         });
-                    } else {
-                      res.status(200).json({ status: "success" });
                     }
-                  })
-                  .catch((err: any) => {
-                    res.status(500).json({ status: "error" });
                   });
               }
             });
