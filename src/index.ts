@@ -481,6 +481,33 @@ app.put("/students", (req, res) => {
   }
 });
 
+app.delete("/students", (req, res) => {
+  if (req.session.userid) {
+    const { ids } = req.body;
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows[0].type === 0) {
+          knex("students")
+            .whereIn("userid", ids)
+            .del()
+            .then(() => {
+              res.status(200).json({ status: "success" });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not admin" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.listen(config.project.port, () => {
   console.log(`Server listening at port ${config.project.port}`);
 });
