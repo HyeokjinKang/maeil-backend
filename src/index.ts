@@ -354,11 +354,133 @@ app.delete("/teachers", (req, res) => {
   }
 });
 
+app.get("/students", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows[0].type === 0) {
+          knex("students")
+            .select("userid", "username", "name", "mobile", "parent", "groups", "performance")
+            .then((rows: any) => {
+              res.status(200).json({ status: "success", num: rows.length, list: rows });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not admin" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.post("/students", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows[0].type === 0) {
+          const { username, password, name, mobile, parent } = req.body;
+          knex("students")
+            .where({ username: username })
+            .then((rows: any) => {
+              if (rows.length > 0) {
+                res.status(400).json({ status: "username exist" });
+              } else {
+                const salt = randomBytes(128).toString("base64");
+                knex("students")
+                  .insert({
+                    userid: uuid(),
+                    username,
+                    name,
+                    mobile,
+                    parent,
+                    groups: "[]",
+                    performance: "[[0,0],[0,0],[0,0]]",
+                    salt: salt,
+                    password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                  })
+                  .then(() => {
+                    res.status(200).json({ status: "success" });
+                  })
+                  .catch((err: any) => {
+                    res.status(500).json({ status: "error" });
+                    console.log(err);
+                  });
+              }
+            });
+        } else {
+          res.status(400).json({ status: "not admin" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.put("/students", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows[0].type === 0) {
+          const { userid, username, password, name, mobile, parent } = req.body;
+          knex("students")
+            .where({ username: username })
+            .where("userid", "!=", userid)
+            .then((rows: any) => {
+              if (rows.length > 0) {
+                res.status(400).json({ status: "username exist" });
+              } else {
+                knex("students")
+                  .where({ userid })
+                  .update({
+                    username,
+                    name,
+                    mobile,
+                    parent,
+                  })
+                  .then(() => {
+                    if (password) {
+                      const salt = randomBytes(128).toString("base64");
+                      knex("students")
+                        .where({ userid })
+                        .update({
+                          salt: salt,
+                          password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                        })
+                        .then(() => {
+                          res.status(200).json({ status: "success" });
+                        })
+                        .catch((err: any) => {
+                          res.status(500).json({ status: "error" });
+                          console.log(err);
+                        });
+                    } else {
+                      res.status(200).json({ status: "success" });
+                    }
+                  })
+                  .catch((err: any) => {
+                    res.status(500).json({ status: "error" });
+                  });
+              }
+            });
+        } else {
+          res.status(400).json({ status: "not admin" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.listen(config.project.port, () => {
-  // console.log(uuid());
-  // const salt = randomBytes(128).toString("base64");
-  // const key = pbkdf2Sync("kanghyukjin12", salt, 100000, 64, "sha512");
-  // console.log(salt);
-  // console.log(key.toString("hex"));
   console.log(`Server listening at port ${config.project.port}`);
 });
