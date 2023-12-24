@@ -387,14 +387,30 @@ app.get("/students", (req, res) => {
       .select("type")
       .then((rows: any) => {
         if (rows[0].type === 0) {
-          knex("students")
-            .select("userid", "username", "name", "mobile", "parent", "groups", "performance", "lastlogin")
-            .then((rows: any) => {
-              res.status(200).json({ status: "success", num: rows.length, list: rows });
-            })
-            .catch((err: any) => {
-              res.status(500).json({ status: "error" });
-              console.log(err);
+          knex("groups")
+            .select("groupid", "name")
+            .then((groups: any) => {
+              knex("students")
+                .select("userid", "username", "name", "mobile", "parent", "groups", "performance", "lastlogin")
+                .then((rows: any) => {
+                  for (let row of rows) {
+                    row.groups = JSON.parse(row.groups);
+                    row.groups = JSON.stringify(
+                      row.groups.map((groupid: string) => {
+                        for (let group of groups) {
+                          if (group.groupid === groupid) {
+                            return group.name;
+                          }
+                        }
+                      })
+                    );
+                  }
+                  res.status(200).json({ status: "success", num: rows.length, list: rows });
+                })
+                .catch((err: any) => {
+                  res.status(500).json({ status: "error" });
+                  console.log(err);
+                });
             });
         } else {
           res.status(400).json({ status: "not admin" });
@@ -412,7 +428,7 @@ app.post("/students", (req, res) => {
       .select("type")
       .then((rows: any) => {
         if (rows[0].type === 0) {
-          const { username, password, name, mobile, parent } = req.body;
+          const { username, password, name, mobile, parent, groups } = req.body;
           knex("students")
             .where({ username: username })
             .then((rows: any) => {
@@ -426,20 +442,42 @@ app.post("/students", (req, res) => {
                       res.status(400).json({ status: "name exist" });
                     } else {
                       const salt = randomBytes(128).toString("base64");
+                      const userid = uuid();
                       knex("students")
                         .insert({
-                          userid: uuid(),
+                          userid,
                           username,
                           name,
                           mobile,
                           parent,
-                          groups: "[]",
+                          groups,
                           performance: "[[0,0],[0,0],[0,0]]",
                           salt: salt,
                           password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
                           lastlogin: new Date(),
                         })
                         .then(() => {
+                          JSON.parse("groups").forEach((groupid: string) => {
+                            knex("groups")
+                              .where({ groupid })
+                              .then((rows: any) => {
+                                if (rows.length > 0) {
+                                  const students = JSON.parse(rows[0].students);
+                                  students.push(userid);
+                                  knex("groups")
+                                    .where({ groupid })
+                                    .update({
+                                      students: JSON.stringify(students),
+                                    })
+                                    .catch((err: any) => {
+                                      console.log(err);
+                                    });
+                                }
+                              })
+                              .catch((err: any) => {
+                                console.log(err);
+                              });
+                          });
                           res.status(200).json({ status: "success" });
                         })
                         .catch((err: any) => {
@@ -466,7 +504,7 @@ app.put("/students", (req, res) => {
       .select("type")
       .then((rows: any) => {
         if (rows[0].type === 0) {
-          const { userid, username, password, name, mobile, parent } = req.body;
+          const { userid, username, password, name, mobile, parent, groups } = req.body;
           knex("students")
             .where({ username: username })
             .where("userid", "!=", userid)
@@ -483,34 +521,85 @@ app.put("/students", (req, res) => {
                     } else {
                       knex("students")
                         .where({ userid })
-                        .update({
-                          username,
-                          name,
-                          mobile,
-                          parent,
-                        })
-                        .then(() => {
-                          if (password) {
-                            const salt = randomBytes(128).toString("base64");
-                            knex("students")
-                              .where({ userid })
-                              .update({
-                                salt: salt,
-                                password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
-                              })
-                              .then(() => {
-                                res.status(200).json({ status: "success" });
+                        .then((rows: any) => {
+                          const prevGroups = JSON.parse(rows[0].groups);
+                          const nextGroups = JSON.parse(groups);
+                          const delGroups = prevGroups.filter((groupid: string) => !nextGroups.includes(groupid));
+                          const addGroups = nextGroups.filter((groupid: string) => !prevGroups.includes(groupid));
+                          for (let groupid of delGroups) {
+                            knex("groups")
+                              .where({ groupid })
+                              .then((rows: any) => {
+                                if (rows.length > 0) {
+                                  const students = JSON.parse(rows[0].students);
+                                  students.splice(students.indexOf(userid), 1);
+                                  knex("groups")
+                                    .where({ groupid })
+                                    .update({
+                                      students: JSON.stringify(students),
+                                    })
+                                    .catch((err: any) => {
+                                      console.log(err);
+                                    });
+                                }
                               })
                               .catch((err: any) => {
-                                res.status(500).json({ status: "error" });
                                 console.log(err);
                               });
-                          } else {
-                            res.status(200).json({ status: "success" });
                           }
-                        })
-                        .catch((err: any) => {
-                          res.status(500).json({ status: "error" });
+                          for (let groupid of addGroups) {
+                            knex("groups")
+                              .where({ groupid })
+                              .then((rows: any) => {
+                                if (rows.length > 0) {
+                                  const students = JSON.parse(rows[0].students);
+                                  students.push(userid);
+                                  knex("groups")
+                                    .where({ groupid })
+                                    .update({
+                                      students: JSON.stringify(students),
+                                    })
+                                    .catch((err: any) => {
+                                      console.log(err);
+                                    });
+                                }
+                              })
+                              .catch((err: any) => {
+                                console.log(err);
+                              });
+                          }
+                          knex("students")
+                            .where({ userid })
+                            .update({
+                              username,
+                              name,
+                              mobile,
+                              parent,
+                              groups,
+                            })
+                            .then(() => {
+                              if (password) {
+                                const salt = randomBytes(128).toString("base64");
+                                knex("students")
+                                  .where({ userid })
+                                  .update({
+                                    salt: salt,
+                                    password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
+                                  })
+                                  .then(() => {
+                                    res.status(200).json({ status: "success" });
+                                  })
+                                  .catch((err: any) => {
+                                    res.status(500).json({ status: "error" });
+                                    console.log(err);
+                                  });
+                              } else {
+                                res.status(200).json({ status: "success" });
+                              }
+                            })
+                            .catch((err: any) => {
+                              res.status(500).json({ status: "error" });
+                            });
                         });
                     }
                   });
@@ -533,6 +622,24 @@ app.delete("/students", (req, res) => {
       .select("type")
       .then((rows: any) => {
         if (rows[0].type === 0) {
+          knex("groups")
+            .select("groupid", "students")
+            .then((groups: any) => {
+              for (let group of groups) {
+                const prevArray = JSON.parse(group.students);
+                const nextArray = prevArray.filter((userid: string) => !ids.includes(userid));
+                if (prevArray.length !== nextArray.length) {
+                  knex("groups")
+                    .where({ groupid: group.groupid })
+                    .update({
+                      students: JSON.stringify(nextArray),
+                    })
+                    .catch((err: any) => {
+                      console.log(err);
+                    });
+                }
+              }
+            });
           knex("students")
             .whereIn("userid", ids)
             .del()
@@ -546,6 +653,345 @@ app.delete("/students", (req, res) => {
         } else {
           res.status(400).json({ status: "not admin" });
         }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.get("/studentbyname/:name", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows.length === 0) {
+          res.status(400).json({ status: "not admin" });
+          return;
+        }
+        const { name } = req.params;
+        knex("students")
+          .where({ name })
+          .select("userid", "username", "name", "mobile", "parent", "groups", "performance", "lastlogin")
+          .then((rows: any) => {
+            if (rows.length > 0) {
+              res.status(200).json({ status: "success", student: rows[0] });
+            } else {
+              res.status(400).json({ status: "not exist" });
+            }
+          })
+          .catch((err: any) => {
+            res.status(500).json({ status: "error" });
+            console.log(err);
+          });
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.get("/studentbyid/:userid", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows.length === 0) {
+          res.status(400).json({ status: "not admin" });
+          return;
+        }
+        const { userid } = req.params;
+        knex("students")
+          .where({ userid })
+          .select("userid", "username", "name", "mobile", "parent", "groups", "performance", "lastlogin")
+          .then((rows: any) => {
+            if (rows.length > 0) {
+              res.status(200).json({ status: "success", student: rows[0] });
+            } else {
+              res.status(400).json({ status: "not exist" });
+            }
+          })
+          .catch((err: any) => {
+            res.status(500).json({ status: "error" });
+            console.log(err);
+          });
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.get("/groups", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows.length > 0) {
+          knex("groups")
+            .select("groupid", "name", "students", "teacher", "teacherid")
+            .then((rows: any) => {
+              res.status(200).json({ status: "success", num: rows.length, list: rows });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.post("/groups", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("userid")
+      .then((rows: any) => {
+        if (rows.length > 0) {
+          const { name, teacher, students } = req.body;
+          knex("groups")
+            .where({ name })
+            .then((rows: any) => {
+              if (rows.length > 0) {
+                res.status(400).json({ status: "name exist" });
+              } else {
+                knex("teachers")
+                  .where({ name: teacher })
+                  .then((rows: any) => {
+                    if (rows.length > 0) {
+                      const groupid = uuid();
+                      knex("groups")
+                        .insert({
+                          groupid,
+                          name,
+                          teacher,
+                          teacherid: rows[0].userid,
+                          students,
+                        })
+                        .then(() => {
+                          JSON.parse(students).forEach((userid: string) => {
+                            knex("students")
+                              .where({ userid })
+                              .then((rows: any) => {
+                                if (rows.length > 0) {
+                                  const groups = JSON.parse(rows[0].groups);
+                                  groups.push(groupid);
+                                  knex("students")
+                                    .where({ userid })
+                                    .update({
+                                      groups: JSON.stringify(groups),
+                                    })
+                                    .catch((err: any) => {
+                                      console.log(err);
+                                    });
+                                }
+                              })
+                              .catch((err: any) => {
+                                console.log(err);
+                              });
+                          });
+                          res.status(200).json({ status: "success" });
+                        })
+                        .catch((err: any) => {
+                          res.status(500).json({ status: "error" });
+                          console.log(err);
+                        });
+                    } else {
+                      res.status(400).json({ status: "teacher not exist" });
+                    }
+                  });
+              }
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.put("/groups", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("userid")
+      .then((rows: any) => {
+        if (rows.length > 0) {
+          const { groupid, name, teacher, students } = req.body;
+          knex("groups")
+            .where({ groupid })
+            .select("students")
+            .then((groupStudents: any) => {
+              knex("groups")
+                .where({ name })
+                .where("groupid", "!=", groupid)
+                .then(async (rows: any) => {
+                  if (rows.length > 0) {
+                    res.status(400).json({ status: "name exist" });
+                  } else {
+                    for (let userid of JSON.parse(groupStudents[0].students)) {
+                      await knex("students")
+                        .where({ userid })
+                        .then(async (rows: any) => {
+                          if (rows.length > 0) {
+                            const groups = JSON.parse(rows[0].groups);
+                            groups.splice(groups.indexOf(groupid), 1);
+                            await knex("students")
+                              .where({ userid })
+                              .update({
+                                groups: JSON.stringify(groups),
+                              })
+                              .catch((err: any) => {
+                                console.log(err);
+                              });
+                          }
+                        })
+                        .catch((err: any) => {
+                          console.log(err);
+                        });
+                    }
+                    knex("teachers")
+                      .where({ name: teacher })
+                      .then((rows: any) => {
+                        if (rows.length > 0) {
+                          knex("groups")
+                            .where({ groupid })
+                            .update({
+                              name,
+                              teacher,
+                              teacherid: rows[0].userid,
+                              students,
+                            })
+                            .then(() => {
+                              JSON.parse(students).forEach((userid: string) => {
+                                knex("students")
+                                  .where({ userid })
+                                  .then((rows: any) => {
+                                    if (rows.length > 0) {
+                                      const groups = JSON.parse(rows[0].groups);
+                                      groups.push(groupid);
+                                      knex("students")
+                                        .where({ userid })
+                                        .update({
+                                          groups: JSON.stringify(groups),
+                                        })
+                                        .catch((err: any) => {
+                                          console.log(err);
+                                        });
+                                    }
+                                  })
+                                  .catch((err: any) => {
+                                    console.log(err);
+                                  });
+                              });
+                              res.status(200).json({ status: "success" });
+                            })
+                            .catch((err: any) => {
+                              res.status(500).json({ status: "error" });
+                              console.log(err);
+                            });
+                        } else {
+                          res.status(400).json({ status: "teacher not exist" });
+                        }
+                      });
+                  }
+                });
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.delete("/groups", (req, res) => {
+  if (req.session.userid) {
+    const { ids } = req.body;
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("userid")
+      .then((rows: any) => {
+        if (rows.length > 0) {
+          knex("groups")
+            .whereIn("groupid", ids)
+            .select("students")
+            .then((rows: any) => {
+              for (let row of rows) {
+                for (let userid of JSON.parse(row.students)) {
+                  knex("students")
+                    .where({ userid })
+                    .then((rows: any) => {
+                      if (rows.length > 0) {
+                        const groups = JSON.parse(rows[0].groups);
+                        groups.splice(groups.indexOf(ids), 1);
+                        knex("students")
+                          .where({ userid })
+                          .update({
+                            groups: JSON.stringify(groups),
+                          })
+                          .catch((err: any) => {
+                            console.log(err);
+                          });
+                      }
+                    })
+                    .catch((err: any) => {
+                      console.log(err);
+                    });
+                }
+              }
+              knex("groups")
+                .whereIn("groupid", ids)
+                .del()
+                .then(() => {
+                  res.status(200).json({ status: "success" });
+                })
+                .catch((err: any) => {
+                  res.status(500).json({ status: "error" });
+                  console.log(err);
+                });
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.get("/groupbyname/:name", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows.length === 0) {
+          res.status(400).json({ status: "not admin" });
+          return;
+        }
+        const { name } = req.params;
+        knex("groups")
+          .where({ name })
+          .select("groupid", "name", "students", "teacher", "teacherid")
+          .then((rows: any) => {
+            if (rows.length > 0) {
+              res.status(200).json({ status: "success", group: rows[0] });
+            } else {
+              res.status(400).json({ status: "not exist" });
+            }
+          })
+          .catch((err: any) => {
+            res.status(500).json({ status: "error" });
+            console.log(err);
+          });
       });
   } else {
     res.status(400).json({ status: "not logined" });
