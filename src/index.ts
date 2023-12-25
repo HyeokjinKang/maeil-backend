@@ -131,6 +131,7 @@ app.post("/allboard", (req, res) => {
               delta,
               date: new Date(),
               id: uuid(),
+              view: 0,
             })
             .then(() => {
               res.status(200).json({ status: "success" });
