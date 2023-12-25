@@ -959,6 +959,14 @@ app.delete("/groups", (req, res) => {
                     });
                 }
               }
+              knex("assignments")
+                .whereIn("group", ids)
+                .del()
+                .catch((err: any) => {
+                  res.status(500).json({ status: "error" });
+                  console.log(err);
+                  return;
+                });
               knex("groups")
                 .whereIn("groupid", ids)
                 .del()
