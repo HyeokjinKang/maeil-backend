@@ -1043,6 +1043,190 @@ app.get("/mygroups/teacher", (req, res) => {
   }
 });
 
+app.get("/teacherboard", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .then((rows: any) => {
+        if (rows.length > 0) {
+          knex("groups")
+            .select("groupid", "name")
+            .then((groups: any) => {
+              knex("teacherboard")
+                .select("id", "title", "content", "date", "delta", "groups")
+                .where({ teacher: rows[0].userid })
+                .orderBy("date", "desc")
+                .then((rows: any) => {
+                  for (let row of rows) {
+                    row.groups = JSON.parse(row.groups);
+                    row.groups = JSON.stringify(
+                      row.groups.map((groupid: string) => {
+                        for (let group of groups) {
+                          if (group.groupid === groupid) {
+                            return group.name;
+                          }
+                        }
+                      })
+                    );
+                  }
+                  res.status(200).json({ status: "success", num: rows.length, list: rows });
+                })
+                .catch((err: any) => {
+                  res.status(500).json({ status: "error" });
+                  console.log(err);
+                });
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.post("/teacherboard", (req, res) => {
+  if (req.session.userid) {
+    const { title, content, delta, groups } = req.body;
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .then(async (teacher: any) => {
+        if (teacher.length > 0) {
+          for (let groupid of JSON.parse(groups)) {
+            await knex("groups")
+              .where({ groupid })
+              .then(async (rows: any) => {
+                if (rows[0].teacherid != teacher[0].userid) {
+                  res.status(400).json({ status: "not your group" });
+                  return;
+                }
+              })
+              .catch((err: any) => {
+                console.log(err);
+              });
+          }
+          knex("teacherboard")
+            .insert({
+              title,
+              content,
+              delta,
+              date: new Date(),
+              id: uuid(),
+              teacher: teacher[0].userid,
+              view: 0,
+              groups,
+            })
+            .then(() => {
+              res.status(200).json({ status: "success" });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.put("/teacherboard", (req, res) => {
+  if (req.session.userid) {
+    const { id, title, content, delta, groups } = req.body;
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .then(async (teacher: any) => {
+        if (teacher.length > 0) {
+          for (let groupid of JSON.parse(groups)) {
+            await knex("groups")
+              .where({ groupid })
+              .then(async (rows: any) => {
+                if (rows[0].teacherid != teacher[0].userid) {
+                  res.status(400).json({ status: "not your group" });
+                  return;
+                }
+              })
+              .catch((err: any) => {
+                console.log(err);
+              });
+          }
+          knex("teacherboard")
+            .where({ id })
+            .update({
+              title,
+              content,
+              delta,
+              date: new Date(),
+              groups,
+            })
+            .then(() => {
+              res.status(200).json({ status: "success" });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.delete("/teacherboard", (req, res) => {
+  if (req.session.userid) {
+    const { ids } = req.body;
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .then(async (teacher: any) => {
+        if (teacher.length > 0) {
+          for (let id of ids) {
+            await knex("teacherboard")
+              .where({ id })
+              .then(async (rows: any) => {
+                if (rows.length > 0) {
+                  for (let groupid of JSON.parse(rows[0].groups)) {
+                    await knex("groups")
+                      .where({ groupid })
+                      .then(async (rows: any) => {
+                        if (rows[0].teacherid != teacher[0].userid) {
+                          res.status(400).json({ status: "not your group" });
+                          return;
+                        }
+                      })
+                      .catch((err: any) => {
+                        console.log(err);
+                      });
+                  }
+                }
+              })
+              .catch((err: any) => {
+                console.log(err);
+              });
+          }
+          knex("teacherboard")
+            .whereIn("id", ids)
+            .del()
+            .then(() => {
+              res.status(200).json({ status: "success" });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.listen(config.project.port, () => {
   console.log(`Server listening at port ${config.project.port}`);
 });
