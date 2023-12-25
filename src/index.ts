@@ -361,16 +361,27 @@ app.delete("/teachers", (req, res) => {
       .then((rows: any) => {
         if (rows[0].type === 0) {
           const { ids } = req.body;
-          knex("teachers")
-            .whereIn("userid", ids)
-            .where("userid", "!=", req.session.userid)
+          knex("teacherboard")
+            .whereIn("teacher", ids)
+            .where("teacher", "!=", req.session.userid)
             .del()
             .then(() => {
-              res.status(200).json({ status: "success" });
+              knex("teachers")
+                .whereIn("userid", ids)
+                .where("userid", "!=", req.session.userid)
+                .del()
+                .then(() => {
+                  res.status(200).json({ status: "success" });
+                })
+                .catch((err: any) => {
+                  res.status(500).json({ status: "error" });
+                  console.log(err);
+                });
             })
             .catch((err: any) => {
               res.status(500).json({ status: "error" });
               console.log(err);
+              return;
             });
         } else {
           res.status(400).json({ status: "not admin" });
