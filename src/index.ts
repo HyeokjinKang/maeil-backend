@@ -469,7 +469,7 @@ app.post("/students", (req, res) => {
                           lastlogin: new Date(),
                         })
                         .then(() => {
-                          JSON.parse("groups").forEach((groupid: string) => {
+                          JSON.parse(groups).forEach((groupid: string) => {
                             knex("groups")
                               .where({ groupid })
                               .then((rows: any) => {
