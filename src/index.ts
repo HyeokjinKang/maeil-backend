@@ -105,7 +105,7 @@ app.post("/admin/logout", (req, res) => {
 
 app.get("/allboard", (req, res) => {
   knex("allboard")
-    .select("id", "title", "content", "date", "delta")
+    .select("id", "title", "content", "date", "delta", "view")
     .orderBy("date", "desc")
     .then((rows: any) => {
       res.status(200).json({ status: "success", num: rows.length, list: rows });
@@ -1053,7 +1053,7 @@ app.get("/teacherboard", (req, res) => {
             .select("groupid", "name")
             .then((groups: any) => {
               knex("teacherboard")
-                .select("id", "title", "content", "date", "delta", "groups")
+                .select("id", "title", "content", "date", "delta", "groups", "view")
                 .where({ teacher: rows[0].userid })
                 .orderBy("date", "desc")
                 .then((rows: any) => {
