@@ -1018,6 +1018,31 @@ app.get("/groupbyname/:name", (req, res) => {
   }
 });
 
+app.get("/mygroups/teacher", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .then((rows: any) => {
+        if (rows.length > 0) {
+          knex("groups")
+            .select("groupid", "name", "students", "teacher", "teacherid")
+            .where({ teacherid: rows[0].userid })
+            .then((rows: any) => {
+              res.status(200).json({ status: "success", num: rows.length, list: rows });
+            })
+            .catch((err: any) => {
+              res.status(500).json({ status: "error" });
+              console.log(err);
+            });
+        } else {
+          res.status(400).json({ status: "not teacher" });
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.listen(config.project.port, () => {
   console.log(`Server listening at port ${config.project.port}`);
 });
