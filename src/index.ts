@@ -402,26 +402,44 @@ app.get("/students", (req, res) => {
           knex("groups")
             .select("groupid", "name")
             .then((groups: any) => {
+              const query = req.query;
               knex("students")
-                .select("userid", "username", "name", "mobile", "parent", "groups", "performance", "lastlogin")
-                .then((rows: any) => {
-                  for (let row of rows) {
-                    row.groups = JSON.parse(row.groups);
-                    row.groups = JSON.stringify(
-                      row.groups.map((groupid: string) => {
-                        for (let group of groups) {
-                          if (group.groupid === groupid) {
-                            return group.name;
-                          }
-                        }
-                      })
-                    );
-                  }
-                  res.status(200).json({ status: "success", num: rows.length, list: rows });
-                })
-                .catch((err: any) => {
-                  res.status(500).json({ status: "error" });
-                  console.log(err);
+                .where("name", "like", `%${query.name}%`)
+                .where("username", "like", `%${query.username}%`)
+                .where("school", "like", `%${query.school}%`)
+                .where("grade", "like", `%${query.grade}%`)
+                .where("mobile", "like", `%${query.mobile}%`)
+                .where("parent", "like", `%${query.parent}%`)
+                .count({ count: "*" })
+                .then((count: any) => {
+                  knex("students")
+                    .where("name", "like", `%${query.name}%`)
+                    .where("username", "like", `%${query.username}%`)
+                    .where("school", "like", `%${query.school}%`)
+                    .where("grade", "like", `%${query.grade}%`)
+                    .where("mobile", "like", `%${query.mobile}%`)
+                    .where("parent", "like", `%${query.parent}%`)
+                    .limit(Number(query.limit))
+                    .offset(Number(query.limit) * (Number(query.page) - 1))
+                    .then((rows: any) => {
+                      for (let row of rows) {
+                        row.groups = JSON.parse(row.groups);
+                        row.groups = JSON.stringify(
+                          row.groups.map((groupid: string) => {
+                            for (let group of groups) {
+                              if (group.groupid === groupid) {
+                                return group.name;
+                              }
+                            }
+                          })
+                        );
+                      }
+                      res.status(200).json({ status: "success", num: count[0].count, list: rows });
+                    })
+                    .catch((err: any) => {
+                      res.status(500).json({ status: "error" });
+                      console.log(err);
+                    });
                 });
             });
         } else {
