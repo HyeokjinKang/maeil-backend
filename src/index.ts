@@ -440,7 +440,7 @@ app.post("/students", (req, res) => {
       .select("type")
       .then((rows: any) => {
         if (rows[0].type === 0) {
-          const { username, password, name, mobile, parent, groups } = req.body;
+          const { username, password, name, mobile, parent, groups, school, grade } = req.body;
           knex("students")
             .where({ username: username })
             .then((rows: any) => {
@@ -463,6 +463,8 @@ app.post("/students", (req, res) => {
                           mobile,
                           parent,
                           groups,
+                          school,
+                          grade,
                           performance: "[[0,0],[0,0],[0,0]]",
                           salt: salt,
                           password: pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex"),
@@ -516,7 +518,7 @@ app.put("/students", (req, res) => {
       .select("type")
       .then((rows: any) => {
         if (rows[0].type === 0) {
-          const { userid, username, password, name, mobile, parent, groups } = req.body;
+          const { userid, username, password, name, mobile, parent, groups, school, grade } = req.body;
           knex("students")
             .where({ username: username })
             .where("userid", "!=", userid)
@@ -588,6 +590,8 @@ app.put("/students", (req, res) => {
                               mobile,
                               parent,
                               groups,
+                              school,
+                              grade,
                             })
                             .then(() => {
                               if (password) {
