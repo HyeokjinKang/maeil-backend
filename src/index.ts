@@ -1258,29 +1258,39 @@ app.get("/assignments", (req, res) => {
           knex("groups")
             .select("groupid", "name", "teacherid")
             .then((groups: any) => {
-              let mygroups = [];
+              let mygroups: string[] = [];
               for (let group of groups) {
                 if (group.teacherid === rows[0].userid) {
                   mygroups.push(group.groupid);
                 }
               }
+              const query = req.query;
               knex("assignments")
-                .select("id", "title", "content", "delta", "date", "group", "deadline", "teacher")
-                .whereIn("group", mygroups)
-                .orderBy("date", "desc")
-                .then((rows: any) => {
-                  for (let row of rows) {
-                    for (let group of groups) {
-                      if (group.groupid === row.group) {
-                        row.group = group.name;
+                .where("title", "like", `%${query.title}%`)
+                .where("content", "like", `%${query.content}%`)
+                .count({ count: "*" })
+                .then((count: any) => {
+                  knex("assignments")
+                    .where("title", "like", `%${query.title}%`)
+                    .where("content", "like", `%${query.content}%`)
+                    .whereIn("group", mygroups)
+                    .orderBy("date", "desc")
+                    .limit(Number(query.limit))
+                    .offset(Number(query.limit) * (Number(query.page) - 1))
+                    .then((rows: any) => {
+                      for (let row of rows) {
+                        for (let group of groups) {
+                          if (group.groupid === row.group) {
+                            row.group = group.name;
+                          }
+                        }
                       }
-                    }
-                  }
-                  res.status(200).json({ status: "success", num: rows.length, list: rows });
-                })
-                .catch((err: any) => {
-                  res.status(500).json({ status: "error" });
-                  console.log(err);
+                      res.status(200).json({ status: "success", num: count[0].count, list: rows });
+                    })
+                    .catch((err: any) => {
+                      res.status(500).json({ status: "error" });
+                      console.log(err);
+                    });
                 });
             });
         } else {
