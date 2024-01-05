@@ -1403,17 +1403,31 @@ app.put("/assignments", (req, res) => {
             });
           knex("assignments")
             .where({ id })
-            .update({
-              title,
-              content,
-              delta,
-              date: new Date(),
-              group,
-              deadline: new Date(deadline),
-              teacher: teacher[0].name,
-            })
-            .then(() => {
-              res.status(200).json({ status: "success" });
+            .select("submitted", "late")
+            .then((rows: any) => {
+              let submitted = JSON.parse(rows[0].submitted);
+              let late = JSON.parse(rows[0].late);
+              submitted.push(...late);
+              knex("assignments")
+                .where({ id })
+                .update({
+                  title,
+                  content,
+                  delta,
+                  date: new Date(),
+                  group,
+                  deadline: new Date(deadline),
+                  teacher: teacher[0].name,
+                  submitted: JSON.stringify(submitted),
+                  late: "[]",
+                })
+                .then(() => {
+                  res.status(200).json({ status: "success" });
+                })
+                .catch((err: any) => {
+                  res.status(500).json({ status: "error" });
+                  console.log(err);
+                });
             })
             .catch((err: any) => {
               res.status(500).json({ status: "error" });
