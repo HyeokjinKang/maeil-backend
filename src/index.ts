@@ -1490,6 +1490,120 @@ app.delete("/assignments", (req, res) => {
   }
 });
 
+app.get("/submission/:assignmentID/:studentID", (req, res) => {
+  if (req.session.userid) {
+    const { assignmentID, studentID } = req.params;
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .then(async (teacher: any) => {
+        if (req.session.userid !== studentID) {
+          if (teacher.length <= 0) {
+            res.status(400).json({ status: "no permission" });
+            return;
+          } else {
+            await knex("assignments")
+              .where({ id: assignmentID })
+              .then(async (rows: any) => {
+                await knex("groups")
+                  .where({ groupid: rows[0].group })
+                  .then(async (rows: any) => {
+                    if (rows[0].teacherid != teacher[0].userid) {
+                      res.status(400).json({ status: "not your group" });
+                      return;
+                    }
+                  })
+                  .catch((err: any) => {
+                    console.log(err);
+                  });
+              })
+              .catch((err: any) => {
+                console.log(err);
+              });
+          }
+        }
+        knex("submissions")
+          .where({ assignment: assignmentID, student: studentID })
+          .then((rows: any) => {
+            if (rows.length > 0) {
+              res.status(200).json({ status: "success", submission: rows[0] });
+            } else {
+              res.status(400).json({ status: "not exist" });
+            }
+          })
+          .catch((err: any) => {
+            res.status(500).json({ status: "error" });
+            console.log(err);
+          });
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
+app.put("/submission/:assignmentID/:studentID", (req, res) => {
+  if (req.session.userid) {
+    const { assignmentID, studentID } = req.params;
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .then(async (teacher: any) => {
+        if (req.session.userid !== studentID) {
+          if (teacher.length <= 0) {
+            res.status(400).json({ status: "no permission" });
+            return;
+          } else {
+            await knex("assignments")
+              .where({ id: assignmentID })
+              .then(async (rows: any) => {
+                await knex("groups")
+                  .where({ groupid: rows[0].group })
+                  .then(async (rows: any) => {
+                    if (rows[0].teacherid != teacher[0].userid) {
+                      res.status(400).json({ status: "not your group" });
+                      return;
+                    }
+                  })
+                  .catch((err: any) => {
+                    console.log(err);
+                  });
+              })
+              .catch((err: any) => {
+                console.log(err);
+              });
+          }
+        }
+        const { delta, isLate } = req.body;
+        if (isLate != undefined) {
+          knex("assignments")
+            .where({ id: assignmentID })
+            .then(async (rows: any) => {
+              let late = JSON.parse(rows[0].late);
+              let submitted = JSON.parse(rows[0].submitted);
+              if (isLate) {
+                late.push(studentID);
+                submitted.splice(submitted.indexOf(studentID), 1);
+              } else {
+                submitted.push(studentID);
+                late.splice(late.indexOf(studentID), 1);
+              }
+              await knex("assignments")
+                .where({ id: assignmentID })
+                .update({
+                  late: JSON.stringify(late),
+                  submitted: JSON.stringify(submitted),
+                })
+                .then(() => {
+                  res.status(200).json({ status: "success" });
+                });
+            });
+        } else {
+          //student
+        }
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.listen(config.project.port, () => {
   console.log(`Server listening at port ${config.project.port}`);
 });
