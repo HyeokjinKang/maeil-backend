@@ -1366,6 +1366,8 @@ app.post("/assignments", (req, res) => {
                 teacher: teacher[0].name,
                 group,
                 deadline: new Date(deadline),
+                submitted: "[]",
+                late: "[]",
               })
               .catch((err: any) => {
                 res.status(500).json({ status: "error" });
