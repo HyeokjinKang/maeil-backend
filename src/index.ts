@@ -755,6 +755,39 @@ app.get("/studentbyid/:userid", (req, res) => {
   }
 });
 
+interface StudentPair {
+  [key: string]: string;
+}
+
+app.get("/studentsPair", (req, res) => {
+  if (req.session.userid) {
+    knex("teachers")
+      .where({ userid: req.session.userid })
+      .select("type")
+      .then((rows: any) => {
+        if (rows.length === 0) {
+          res.status(400).json({ status: "not admin" });
+          return;
+        }
+        knex("students")
+          .select("userid", "name")
+          .then((rows: any) => {
+            let pair: StudentPair = {};
+            for (let row of rows) {
+              pair[row.userid] = row.name;
+            }
+            res.status(200).json({ status: "success", pair });
+          })
+          .catch((err: any) => {
+            res.status(500).json({ status: "error" });
+            console.log(err);
+          });
+      });
+  } else {
+    res.status(400).json({ status: "not logined" });
+  }
+});
+
 app.get("/groups", (req, res) => {
   if (req.session.userid) {
     knex("teachers")
