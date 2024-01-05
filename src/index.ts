@@ -1578,7 +1578,10 @@ app.put("/submission/:assignmentID/:studentID", (req, res) => {
             .then(async (rows: any) => {
               let late = JSON.parse(rows[0].late);
               let submitted = JSON.parse(rows[0].submitted);
-              if (isLate) {
+              if (isLate == 2) {
+                if (late.includes(studentID)) late.splice(late.indexOf(studentID), 1);
+                if (submitted.includes(studentID)) submitted.splice(submitted.indexOf(studentID), 1);
+              } else if (isLate == 1) {
                 late.push(studentID);
                 submitted.splice(submitted.indexOf(studentID), 1);
               } else {
